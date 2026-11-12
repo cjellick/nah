@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/obot-platform/nah/pkg/mapper"
@@ -29,6 +30,9 @@ type Config struct {
 	ByObject          map[client.Object]cache.ByObject
 	GVKThreadiness    map[schema.GroupVersionKind]int
 	GVKQueueSplitters map[schema.GroupVersionKind]WorkerQueueSplitter
+	// WrapTransport wraps the transport of the clients that read and write
+	// resources. If nil, the transport is instrumented with OpenTelemetry.
+	WrapTransport func(http.RoundTripper) http.RoundTripper
 }
 
 type unsupportedWatchListSemanticsListerWatcher struct {
@@ -83,7 +87,11 @@ func getClients(cfg Config, scheme *runtime.Scheme) (uncachedClient client.WithW
 		return nil, nil, nil, err
 	}
 
-	httpClient.Transport = otelhttp.NewTransport(httpClient.Transport)
+	if cfg.WrapTransport != nil {
+		httpClient.Transport = cfg.WrapTransport(httpClient.Transport)
+	} else {
+		httpClient.Transport = otelhttp.NewTransport(httpClient.Transport)
+	}
 
 	uncachedClient, err = client.NewWithWatch(cfg.Rest, client.Options{
 		HTTPClient: httpClient,

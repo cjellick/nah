@@ -2,6 +2,7 @@ package nah
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/obot-platform/nah/pkg/backend"
 	"github.com/obot-platform/nah/pkg/leader"
@@ -42,6 +43,10 @@ type Options struct {
 	GVKThreadiness map[schema.GroupVersionKind]int
 	// Split the worker queues for these GVKs
 	GVKQueueSplitters map[schema.GroupVersionKind]nruntime.WorkerQueueSplitter
+	// If a Backend is provided, then this is ignored. WrapTransport wraps the transport
+	// of the clients that read and write resources. If nil, the transport is
+	// instrumented with OpenTelemetry.
+	WrapTransport func(http.RoundTripper) http.RoundTripper
 }
 
 func (o *Options) complete() (*Options, error) {
@@ -78,6 +83,7 @@ func (o *Options) complete() (*Options, error) {
 		ByObject:          result.ByObject,
 		GVKThreadiness:    result.GVKThreadiness,
 		GVKQueueSplitters: result.GVKQueueSplitters,
+		WrapTransport:     result.WrapTransport,
 	}
 	backend, err := nruntime.NewRuntimeWithConfig(defaultConfig, result.Scheme)
 	if err != nil {
